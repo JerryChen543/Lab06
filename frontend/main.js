@@ -1,17 +1,23 @@
 import './style.css';
-import {Map, View} from 'ol';
-import TileLayer from 'ol/layer/Tile';
-import OSM from 'ol/source/OSM';
+import { Map, View } from 'ol';
+import { MapInfo } from './js/config';
+import { getTileLayer, MapStyles } from './js/wmts';
 
-const map = new Map({
-  target: 'map',
-  layers: [
-    new TileLayer({
-      source: new OSM()
-    })
-  ],
-  view: new View({
-    center: [0, 0],
-    zoom: 2
-  })
-});
+function initMap() {
+    const map = new Map({
+        target: 'map',
+        layers: [
+            getTileLayer('Amap', MapStyles.Amap.satellite),
+            getTileLayer('Amap', MapStyles.Amap.road),
+        ],
+        view: new View({
+            center: MapInfo.center,
+            zoom: MapInfo.zoom,
+            maxZoom: 18
+        })
+    });
+    return map;
+}
+
+// 初始化地图底图
+const map = initMap();
