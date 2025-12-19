@@ -1,6 +1,6 @@
 import $ from 'jquery';
 
-export function registerEvent() {
+export function registerEvent(map) {
     // 点击面板标题或按钮切换面板状态
     $('#panel-header').on('click', togglePanel);
     $('#toggle-panel').on('click', function (e) {
@@ -21,6 +21,12 @@ export function registerEvent() {
         const tabId = $(this).data('tab');
         switchTab(tabId);
     });
+
+    // 点击建筑信息按钮更新建筑信息
+    $('#building-tab-btn').on('click', function () {
+        // 更新建筑图层信息
+        updateJMDTable(map);
+    });
 }
 
 function togglePanel() {
@@ -36,4 +42,29 @@ function switchTab(tabId) {
     // 添加当前点击标签页的active类
     $(`#${tabId}-tab`).addClass('active');
     $(`#${tabId}-tab-btn`).addClass('active');
+}
+
+function updateJMDTable(map = new Map()) {
+    // 清空表格
+    $('#jmd-table-body').empty();
+
+    // 获取建筑图层
+    const layers = map.getLayers().getArray();
+    const jmdLayer = layers
+        .filter(layer => layer.get('title') === '建筑图层')[0];
+    const jmdFeatures = jmdLayer.getSource().getFeatures();
+
+    // 遍历建筑图层中的特征，更新表格
+    jmdFeatures.forEach(feature => {
+        const id = feature.getId();
+        const properties = feature.getProperties();
+        const jmdName = properties['name'];
+        if (jmdName) {
+            console.log(id, jmdName);
+            $('<tr>')
+                .append($('<td>').text(id))
+                .append($('<td>').text(jmdName))
+                .appendTo('#jmd-table-body');
+        }
+    });
 }

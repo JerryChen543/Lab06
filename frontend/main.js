@@ -80,4 +80,4 @@ loadDataLayers(map);
 updateDataLayersList()
 
 import { registerEvent } from './js/control';
-registerEvent();
+registerEvent(map);
