@@ -8,6 +8,28 @@
   </head>
   <body>
     <div id="map"></div>
+
+    <!-- 可收起面板 -->
+    <div id="panel-container">
+      <div id="panel-header">
+        <h3>建筑图层信息</h3>
+        <button id="toggle-panel">▼</button>
+      </div>
+      <div id="panel-content">
+        <table id="jmd-table">
+          <thead>
+            <tr>
+              <th>属性</th>
+              <th>值</th>
+            </tr>
+          </thead>
+          <tbody id="jmd-table-body">
+            <!-- 动态填充数据 -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <script type="module" src="./main.js"></script>
   </body>
 </html>
