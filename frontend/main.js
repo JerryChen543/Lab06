@@ -33,3 +33,6 @@ function loadDataLayers(map) {
 const map = initMap();
 // 加载GeoJSON数据
 loadDataLayers(map);
+
+import { registerEvent } from './js/control';
+registerEvent();
