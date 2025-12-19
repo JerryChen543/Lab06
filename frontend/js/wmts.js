@@ -19,6 +19,18 @@ const MapStyleStrings = {
     }
 }
 
+/** 图层标题翻译 */
+const MapServiceTranslator = {
+    'service': {
+        'Amap': '高德地图',
+    },
+    'Amap': {
+        'satellite': '卫星',
+        'road': '路网',
+        'map': '地图',
+    }
+}
+
 /** WMTS接口URL */
 export const TileService = {
     'Amap': (
@@ -41,6 +53,7 @@ export function getTileLayer(
             url: url,
             subdomains: ['1', '2', '3', '4']
         }),
+        title: `${MapServiceTranslator[service][style]}@${MapServiceTranslator.service[service]}`,
     });
 }
 

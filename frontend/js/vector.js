@@ -18,7 +18,8 @@ export function getVectorLayer(layerName) {
 
     return new Vector({
         source: source,
-        style: getVectorLayerStyle(data)
+        style: getVectorLayerStyle(data),
+        title: layerName,
     });
 }
 
