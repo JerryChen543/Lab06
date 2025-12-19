@@ -35,5 +35,5 @@ function switchTab(tabId) {
 
     // 添加当前点击标签页的active类
     $(`#${tabId}-tab`).addClass('active');
-    $(`#${tabId}`).addClass('active');
+    $(`#${tabId}-tab-btn`).addClass('active');
 }
