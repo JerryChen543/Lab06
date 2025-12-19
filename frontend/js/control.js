@@ -27,6 +27,29 @@ export function registerEvent(map) {
         // 更新建筑图层信息
         updateJMDTable(map);
     });
+
+    // 工具栏按钮事件处理
+    // 新建要素按钮
+    $('#btn-new').on('click', function () {
+        $(this).toggleClass('active');
+        // TODO: 新建要素
+    });
+    // 编辑要素按钮
+    $('#btn-edit').on('click', function () {
+        $(this).toggleClass('active');
+        // TODO: 编辑要素
+    });
+    // 删除要素按钮
+    $('#btn-delete').on('click', function () {
+        $(this).toggleClass('active');
+        // TODO: 删除要素
+    });
+
+    // 右键点击地图时，取消当前启用的工具
+    $('#map').on('contextmenu', function (e) {
+        e.preventDefault();
+        $('.toolbar-btn').removeClass('active');
+    });
 }
 
 function togglePanel() {
