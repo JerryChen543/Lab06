@@ -32,7 +32,7 @@ def index():
         "status": "running",
         "service": "SHP to GeoJSON converter for OpenLayers",
         "endpoints": {
-            "/shp-to-geojson/<filename>": "Convert SHP file to GeoJSON",
+            "/data/<filename>": "Convert SHP file to GeoJSON",
             "/list-shapefiles": "List available shapefiles",
             "/health": "Health check"
         }
@@ -66,7 +66,7 @@ def get_shapefile_path(filename):
     """获取SHP文件完整路径"""
     return os.path.join(SHP_DIRECTORY, f"{filename}.shp")
 
-@app.route('/shp-to-geojson/<filename>')
+@app.route('/data/<filename>')
 def shp_to_geojson(filename):
     """将指定的Shapefile转换为GeoJSON格式"""
     try:
@@ -109,7 +109,7 @@ def shp_to_geojson(filename):
     except Exception as e:
         return jsonify({"error": f"Conversion failed: {str(e)}"}), 500
 
-@app.route('/shp-to-geojson/<filename>/download')
+@app.route('/data/<filename>/download')
 def download_geojson(filename):
     """下载GeoJSON文件"""
     try:
