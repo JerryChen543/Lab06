@@ -10,6 +10,7 @@
     "vite": "^7.1.11"
   },
   "dependencies": {
+    "jquery": "^3.7.1",
     "ol": "latest"
   }
 }

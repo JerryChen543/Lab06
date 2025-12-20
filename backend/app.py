@@ -1,276 +1,249 @@
-
 import os
-import json
+from pathlib import Path
+
 from flask import Flask, jsonify, send_file, request
 from flask_cors import CORS
+
 import geopandas as gpd
 import pandas as pd
 from shapely.geometry import Point, LineString, Polygon
-from pathlib import Path
 
 app = Flask(__name__)
-CORS(app)  # 启用跨域支持
+CORS(app)
 
-# 配置Shapefile存储目录
-SHP_DIRECTORY = "backend/data"
+# ===============================
+# 基础路径配置
+# ===============================
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+SHP_DIRECTORY = os.path.join(BASE_DIR, "data")
 os.makedirs(SHP_DIRECTORY, exist_ok=True)
 
+
+# ===============================
+# 工具函数
+# ===============================
 def find_shapefile(base_path):
-    """查找与基础名称匹配的.shp文件"""
     base_name = Path(base_path).stem
     shp_files = list(Path(SHP_DIRECTORY).glob(f"{base_name}*.shp"))
     if shp_files:
         return str(shp_files[0])
-    # 如果没有精确匹配，尝试模糊匹配
     all_shp = list(Path(SHP_DIRECTORY).glob("*.shp"))
     return str(all_shp[0]) if all_shp else None
 
-@app.route('/')
+
+def get_shapefile_path(filename):
+    return os.path.join(SHP_DIRECTORY, f"{filename}.shp")
+
+
+def read_shp_no_crs(shp_path):
+    """统一入口：读取 SHP 并彻底移除 CRS"""
+    gdf = gpd.read_file(shp_path)
+    gdf = gdf.set_crs(None, allow_override=True)
+    return gdf
+
+
+# ===============================
+# 基础接口
+# ===============================
+@app.route("/")
 def index():
-    """服务状态检查"""
     return jsonify({
         "status": "running",
-        "service": "SHP to GeoJSON converter for OpenLayers",
-        "endpoints": {
-            "/shp-to-geojson/<filename>": "Convert SHP file to GeoJSON",
-            "/list-shapefiles": "List available shapefiles",
-            "/health": "Health check"
-        }
+        "service": "SHP to GeoJSON backend (CRS bypass mode)",
+        "endpoints": [
+            "/health",
+            "/list-shapefiles",
+            "/shp-to-geojson/<name>",
+            "/shp-to-geojson/<name>/download",
+            "/add-feature/<filename>",
+            "/edit-feature/<filename>/<fid>",
+            "/delete-feature/<filename>/<fid>"
+        ]
     })
 
-@app.route('/health')
-def health_check():
-    """健康检查端点"""
+
+@app.route("/health")
+def health():
     return jsonify({"status": "healthy"})
 
-@app.route('/list-shapefiles')
+
+@app.route("/list-shapefiles")
 def list_shapefiles():
-    """列出所有可用的Shapefile文件"""
     try:
         shp_files = []
-        for file_path in Path(SHP_DIRECTORY).glob("*.shp"):
-            # 获取关联文件信息
-            base_name = file_path.stem
-            associated_files = list(Path(SHP_DIRECTORY).glob(f"{base_name}.*"))
+        for shp in Path(SHP_DIRECTORY).glob("*.shp"):
+            base = shp.stem
+            related = list(Path(SHP_DIRECTORY).glob(f"{base}.*"))
             shp_files.append({
-                "name": base_name,
-                "path": str(file_path),
-                "file_count": len(associated_files),
-                "size": sum(f.stat().st_size for f in associated_files)
+                "name": base,
+                "path": str(shp),
+                "file_count": len(related),
+                "size": sum(f.stat().st_size for f in related)
             })
         return jsonify({"shapefiles": shp_files})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-def get_shapefile_path(filename):
-    """获取SHP文件完整路径"""
-    return os.path.join(SHP_DIRECTORY, f"{filename}.shp")
 
-@app.route('/shp-to-geojson/<filename>')
-def shp_to_geojson(filename):
-    """将指定的Shapefile转换为GeoJSON格式"""
+# ===============================
+# SHP → GeoJSON（核心接口）
+# ===============================
+@app.route("/shp-to-geojson/<name>")
+def shp_to_geojson(name):
+    shp_path = get_shapefile_path(name)
+
+    if not os.path.exists(shp_path):
+        return jsonify({"error": f"{name}.shp not found"}), 404
+
     try:
-        # 构建文件路径
-        shp_path = os.path.join(SHP_DIRECTORY, f"{filename}.shp")
-        
-        # 如果直接路径不存在，尝试查找匹配文件
-        if not os.path.exists(shp_path):
-            shp_path = find_shapefile(os.path.join(SHP_DIRECTORY, filename))
-            if not shp_path or not os.path.exists(shp_path):
-                return jsonify({"error": f"Shapefile '{filename}' not found"}), 404
+        gdf = read_shp_no_crs(shp_path)
+        geojson = gdf.to_json(ensure_ascii=False)
 
-        # 读取Shapefile
-        gdf = gpd.read_file(shp_path)
-        
-        # 处理坐标系转换(确保输出为WGS84)
-        if gdf.crs and gdf.crs.to_string() != 'EPSG:4326':
-            gdf = gdf.to_crs('EPSG:4326')
-        
-        # 转换为GeoJSON字符串
-        geojson_str = gdf.to_json()
-        geojson_data = json.loads(geojson_str)
-        
-        # 添加额外的元数据
-        response_data = {
-            "type": "FeatureCollection",
-            "features": geojson_data["features"],
-            "metadata": {
-                "source": filename,
-                "feature_count": len(geojson_data["features"]),
-                "crs": "EPSG:4326",
-                "bounds": gdf.total_bounds.tolist() if hasattr(gdf, 'total_bounds') else []
-            }
-        }
-        
-        return jsonify(response_data)
-        
-    except FileNotFoundError:
-        return jsonify({"error": f"Shapefile '{filename}' not found"}), 404
+        return app.response_class(
+            response=geojson,
+            status=200,
+            mimetype="application/json"
+        )
     except Exception as e:
-        return jsonify({"error": f"Conversion failed: {str(e)}"}), 500
+        return jsonify({
+            "error": "Conversion failed",
+            "detail": str(e)
+        }), 500
 
-@app.route('/shp-to-geojson/<filename>/download')
+
+# ===============================
+# 下载 GeoJSON（不做 CRS 转换）
+# ===============================
+@app.route("/shp-to-geojson/<filename>/download")
 def download_geojson(filename):
-    """下载GeoJSON文件"""
     try:
-        # 构建文件路径
-        shp_path = os.path.join(SHP_DIRECTORY, f"{filename}.shp")
-        
-        # 如果直接路径不存在，尝试查找匹配文件
+        shp_path = get_shapefile_path(filename)
         if not os.path.exists(shp_path):
-            shp_path = find_shapefile(os.path.join(SHP_DIRECTORY, filename))
-            if not shp_path or not os.path.exists(shp_path):
-                return jsonify({"error": f"Shapefile '{filename}' not found"}), 404
+            shp_path = find_shapefile(filename)
+            if not shp_path:
+                return jsonify({"error": "Shapefile not found"}), 404
 
-        # 读取Shapefile
-        gdf = gpd.read_file(shp_path)
-        
-        # 处理坐标系转换(确保输出为WGS84)
-        if gdf.crs and gdf.crs.to_string() != 'EPSG:4326':
-            gdf = gdf.to_crs('EPSG:4326')
-        
-        # 创建临时GeoJSON文件
-        temp_file = f"/tmp/{filename}.geojson"
-        gdf.to_file(temp_file, driver='GeoJSON')
-        
+        gdf = read_shp_no_crs(shp_path)
+
+        temp_path = os.path.join(BASE_DIR, f"{filename}.geojson")
+        gdf.to_file(temp_path, driver="GeoJSON")
+
         return send_file(
-            temp_file,
+            temp_path,
             as_attachment=True,
             download_name=f"{filename}.geojson",
-            mimetype='application/geo+json'
+            mimetype="application/geo+json"
         )
-        
-    except FileNotFoundError:
-        return jsonify({"error": f"Shapefile '{filename}' not found"}), 404
+
     except Exception as e:
-        return jsonify({"error": f"Download failed: {str(e)}"}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-@app.route('/add-feature/<filename>', methods=['POST'])
+# ===============================
+# 要素编辑相关（全部 CRS 绕过）
+# ===============================
+@app.route("/add-feature/<filename>", methods=["POST"])
 def add_feature(filename):
-    """向SHP文件添加新要素"""
     try:
         data = request.get_json()
-        geometry_data = data.get('geometry')
-        properties = data.get('properties', {})
-        
+        geometry_data = data.get("geometry")
+        properties = data.get("properties", {})
+
         if not geometry_data:
-            return jsonify({"error": "几何数据不能为空"}), 400
-            
+            return jsonify({"error": "geometry is required"}), 400
+
         shp_path = get_shapefile_path(filename)
         if not os.path.exists(shp_path):
-            return jsonify({"error": f"文件 {filename} 不存在"}), 404
-            
-        # 读取现有SHP文件
-        gdf = gpd.read_file(shp_path)
-        
-        # 创建几何对象
-        geom_type = geometry_data.get('type')
-        coordinates = geometry_data.get('coordinates')
-        
-        if geom_type == 'Point':
-            geometry = Point(coordinates)
-        elif geom_type == 'LineString':
-            geometry = LineString(coordinates)
-        elif geom_type == 'Polygon':
-            geometry = Polygon(coordinates[0])  # 外环
+            return jsonify({"error": "file not found"}), 404
+
+        gdf = read_shp_no_crs(shp_path)
+
+        geom_type = geometry_data["type"]
+        coords = geometry_data["coordinates"]
+
+        if geom_type == "Point":
+            geom = Point(coords)
+        elif geom_type == "LineString":
+            geom = LineString(coords)
+        elif geom_type == "Polygon":
+            geom = Polygon(coords[0])
         else:
-            return jsonify({"error": "不支持的几何类型"}), 400
-            
-        # 创建新要素
-        new_feature = gpd.GeoDataFrame([properties], geometry=[geometry], crs=gdf.crs)
-        
-        # 合并到现有数据
-        gdf = pd.concat([gdf, new_feature], ignore_index=True)
-        
-        # 保存更新后的文件
+            return jsonify({"error": "unsupported geometry"}), 400
+
+        new_gdf = gpd.GeoDataFrame(
+            [properties],
+            geometry=[geom],
+            crs=None
+        )
+
+        gdf = pd.concat([gdf, new_gdf], ignore_index=True)
         gdf.to_file(shp_path)
-        
-        return jsonify({
-            "success": True,
-            "message": "要素添加成功",
-            "feature_id": len(gdf) - 1
-        })
-        
+
+        return jsonify({"success": True, "feature_id": len(gdf) - 1})
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route('/edit-feature/<filename>/<int:fid>', methods=['PUT'])
+
+@app.route("/edit-feature/<filename>/<int:fid>", methods=["PUT"])
 def edit_feature(filename, fid):
-    """编辑SHP文件中的指定要素"""
     try:
         data = request.get_json()
-        geometry_data = data.get('geometry')
-        properties = data.get('properties')
-        
         shp_path = get_shapefile_path(filename)
+
         if not os.path.exists(shp_path):
-            return jsonify({"error": f"文件 {filename} 不存在"}), 404
-            
-        # 读取SHP文件
-        gdf = gpd.read_file(shp_path)
-        
+            return jsonify({"error": "file not found"}), 404
+
+        gdf = read_shp_no_crs(shp_path)
+
         if fid >= len(gdf):
-            return jsonify({"error": "要素ID不存在"}), 404
-            
-        # 更新几何（如果有提供）
-        if geometry_data:
-            geom_type = geometry_data.get('type')
-            coordinates = geometry_data.get('coordinates')
-            
-            if geom_type == 'Point':
-                gdf.loc[fid, 'geometry'] = Point(coordinates)
-            elif geom_type == 'LineString':
-                gdf.loc[fid, 'geometry'] = LineString(coordinates)
-            elif geom_type == 'Polygon':
-                gdf.loc[fid, 'geometry'] = Polygon(coordinates[0])
-                
-        # 更新属性（如果有提供）
-        if properties:
-            for key, value in properties.items():
-                if key in gdf.columns:
-                    gdf.loc[fid, key] = value
-                    
-        # 保存更新后的文件
+            return jsonify({"error": "invalid feature id"}), 404
+
+        if "geometry" in data:
+            geom = data["geometry"]
+            t, c = geom["type"], geom["coordinates"]
+            if t == "Point":
+                gdf.at[fid, "geometry"] = Point(c)
+            elif t == "LineString":
+                gdf.at[fid, "geometry"] = LineString(c)
+            elif t == "Polygon":
+                gdf.at[fid, "geometry"] = Polygon(c[0])
+
+        if "properties" in data:
+            for k, v in data["properties"].items():
+                if k in gdf.columns:
+                    gdf.at[fid, k] = v
+
         gdf.to_file(shp_path)
-        
-        return jsonify({
-            "success": True,
-            "message": f"要素 {fid} 更新成功"
-        })
-        
+        return jsonify({"success": True})
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route('/delete-feature/<filename>/<int:fid>', methods=['DELETE'])
+
+@app.route("/delete-feature/<filename>/<int:fid>", methods=["DELETE"])
 def delete_feature(filename, fid):
-    """删除SHP文件中的指定要素"""
     try:
         shp_path = get_shapefile_path(filename)
         if not os.path.exists(shp_path):
-            return jsonify({"error": f"文件 {filename} 不存在"}), 404
-            
-        # 读取SHP文件
-        gdf = gpd.read_file(shp_path)
-        
+            return jsonify({"error": "file not found"}), 404
+
+        gdf = read_shp_no_crs(shp_path)
+
         if fid >= len(gdf):
-            return jsonify({"error": "要素ID不存在"}), 404
-            
-        # 删除指定要素
+            return jsonify({"error": "invalid feature id"}), 404
+
         gdf = gdf.drop(fid).reset_index(drop=True)
-        
-        # 保存更新后的文件
         gdf.to_file(shp_path)
-        
-        return jsonify({
-            "success": True,
-            "message": f"要素 {fid} 删除成功"
-        })
-        
+
+        return jsonify({"success": True})
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+# ===============================
+# 启动
+# ===============================
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)
