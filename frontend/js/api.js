@@ -8,7 +8,7 @@ export async function addFeature(feature, fileName) {
             'Content-Type': 'application/json'
         }
     })
-    console.log(await res.json());
+    return await res.json();
 }
 
 export async function editFeature(feature, fileName, featureId) {
@@ -20,5 +20,13 @@ export async function editFeature(feature, fileName, featureId) {
             'Content-Type': 'application/json'
         }
     })
-    console.log(await res.json());
+    return await res.json();
+}
+
+export async function deleteFeature(featureId, fileName) {
+    const url = `${WebService.url}delete-feature/${fileName}/${featureId}`;
+    const res = await fetch(url, {
+        method: 'DELETE',
+    })
+    return await res.json();
 }

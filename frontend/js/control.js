@@ -1,6 +1,6 @@
 import $ from 'jquery';
 import { initEditPopup } from './popup.js';
-import { newFeatures, editFeatures, getFeatureProperties } from './feature.js';
+import { newFeatures, editFeatures, deleteFeatures, getFeatureProperties } from './feature.js';
 
 export function registerEvent(map) {
     // 点击面板标题或按钮切换面板状态
@@ -105,7 +105,12 @@ export function registerEvent(map) {
     $('#btn-delete').on('click', function () {
         // 选中当前按钮
         const active = selectCurrentToolButton($(this));
-        // TODO: 删除要素
+        if (!active) return;
+
+        // 添加删除交互
+        const deleteInteraction = deleteFeatures(map,
+            selectedLayer.getSource());
+        toolInteractions.push(deleteInteraction);
     });
 
     // 右键点击地图时，取消当前启用的工具

@@ -1,7 +1,7 @@
 import { Draw, Select, Modify } from 'ol/interaction';
 import { Vector } from 'ol/source';
 import { GeoJSON } from 'ol/format';
-import { addFeature, editFeature } from './api';
+import { addFeature, editFeature, deleteFeature } from './api';
 import { showEditPopup } from './popup';
 import Collection from 'ol/Collection.js';
 
@@ -105,6 +105,32 @@ export function editFeatures(map,
                 map.removeInteraction(modifyInteraction);
             }
         }
+    }
+}
+
+export function deleteFeatures(map,
+    source = new Vector({ wrapX: true })) {
+
+    const fileName = source.get("fileName");
+    const selectInteraction = selectFeatures(map, source,
+        onSelectFeatures);
+    return selectInteraction;
+
+    function onSelectFeatures(features) {
+        if (features.length === 0) return;
+        const selectedFeature = features[0];
+        const featureId = selectedFeature.getId();
+        // 弹窗警告用户确认删除
+        const name = selectedFeature.get("name");
+        if (!confirm(`确定删除${name ? `要素“${name}”` : "该要素"}吗？`)) {
+            return;
+        }
+
+        // 从后端删除选中要素
+        deleteFeature(featureId, fileName);
+
+        // 从数据源中删除选中要素
+        source.removeFeature(selectedFeature);
     }
 }
 
