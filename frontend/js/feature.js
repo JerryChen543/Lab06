@@ -84,7 +84,7 @@ export function editFeatures(map,
         function onModifyEnd() {
             const feature = selectedFeature;
             let properties = feature.getProperties();
-            
+
             // 显示属性编辑弹窗
             showEditPopup(properties,
                 onFinishEdit, onCancelEdit);
@@ -93,7 +93,8 @@ export function editFeatures(map,
                 // 保存编辑时，更新要素属性
                 feature.setProperties(newProperties);
                 const json = featureToJSON(feature, newProperties);
-                editFeature(json, fileName);
+                const featureId = feature.getId();
+                editFeature(json, fileName, featureId);
                 map.removeInteraction(modifyInteraction);
                 setOnContextMenu(null);
             }

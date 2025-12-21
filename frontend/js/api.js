@@ -10,3 +10,15 @@ export async function addFeature(feature, fileName) {
     })
     console.log(await res.json());
 }
+
+export async function editFeature(feature, fileName, featureId) {
+    const url = `${WebService.url}edit-feature/${fileName}/${featureId}`;
+    const res = await fetch(url, {
+        method: 'PUT',
+        body: feature,
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    console.log(await res.json());
+}
