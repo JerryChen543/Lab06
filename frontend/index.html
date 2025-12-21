@@ -3,42 +3,45 @@
 <head>
   <meta charset="UTF-8" />
   <title>WebGIS 实验六</title>
-
-  <!-- OpenLayers 样式 -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@7.5.2/ol.css">
-
   <link rel="stylesheet" href="/style.css">
-
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-    }
-    #map {
-      width: 100%;
-      height: 100%;
-    }
-    #layers-list {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      background: white;
-      padding: 5px;
-      border: 1px solid #ccc;
-      max-width: 200px;
-      font-size: 14px;
-    }
-  </style>
 </head>
 
 <body>
-  <div id="map"></div>
-  <div id="layers-list"></div>
 
-  <!-- ES Module 加载 main.js -->
+  <!-- 全屏地图 -->
+  <div id="map"></div>
+
+  <!-- 悬浮工具栏 -->
+  <div id="toolbar">
+    <button id="btnBrowse">浏览</button>
+  </div>
+
+  <!-- 悬浮面板 -->
+  <div id="panel-container">
+    <div id="panel-header">图层与浏览</div>
+    <div id="panel-content">
+      <div id="layers-list"></div>
+
+      <table id="buildingTable" style="display:none;">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>建筑名称</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
   <script type="module" src="/main.js"></script>
 </body>
 </html>
+
+
+
+
+
+
 
 
