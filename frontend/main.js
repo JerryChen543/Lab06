@@ -5,15 +5,16 @@ import Style from 'ol/style/Style';
 import Fill from 'ol/style/Fill';
 import Stroke from 'ol/style/Stroke';
 import Draw from 'ol/interaction/Draw';
-
-
+import Select from 'ol/interaction/Select';
+import Modify from 'ol/interaction/Modify';
 import GeoJSON from 'ol/format/GeoJSON';
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
-
 import { MapInfo } from './js/config';
 import { getTileLayer, MapStyles } from './js/wmts';
 import { registerEvent } from './js/control';
+
+
 
 /* ==============================
    1️⃣ 初始化地图
@@ -66,7 +67,7 @@ function createGeoJsonLayer(options) {
    3️⃣ 加载业务数据图层
 ================================ */
 function loadDataLayers(map) {
-
+    let hasFitted = false;   // ⭐ 只定位一次
     const layersConfig = [
     {
     title: '建筑图层',
@@ -104,15 +105,20 @@ function loadDataLayers(map) {
         const layer = createGeoJsonLayer(cfg);
         map.addLayer(layer);
 
-        // 数据加载完成后自动缩放
-        layer.getSource().on('change', () => {
-            if (layer.getSource().getState() === 'ready') {
-                const extent = layer.getSource().getExtent();
-                map.getView().fit(extent, {
-                    padding: [40, 40, 40, 40]
-                });
-            }
+        // 数据加载完成后不在自动缩放
+       layer.getSource().on('change', () => {
+    if (
+        !hasFitted &&
+        layer.getSource().getState() === 'ready'
+    ) {
+        const extent = layer.getSource().getExtent();
+        map.getView().fit(extent, {
+            padding: [40, 40, 40, 40]
         });
+
+        hasFitted = true;   // ⭐ 之后不再自动缩放
+    }
+});
     });
 }
 
@@ -274,10 +280,8 @@ function initCreateFunction(map) {
             feature.set('Name', name);
 
             // 6️⃣ 转为 GeoJSON（坐标系转换）
-            const geojson = new GeoJSON().writeFeatureObject(feature, {
-                featureProjection: 'EPSG:3857',
-                dataProjection: 'EPSG:4326'
-            });
+           const geojson = new GeoJSON().writeFeatureObject(feature);
+
 
             // 7️⃣ 发送给 Flask 后端
             fetch('http://127.0.0.1:5000/add-feature/building', {
@@ -299,6 +303,98 @@ function initCreateFunction(map) {
     });
 }
 
+/* ==============================
+  编辑功能（Step 1：选中建筑）
+================================ */
+/* ==============================
+  编辑功能（Step 2：几何编辑 Modify）
+================================ */
+/* ==============================
+  编辑功能（完整：Select + Modify + Save）
+================================ */
+function initEditFunction(map) {
+
+    const $btnEdit = $('#btnEdit');
+    const $btnSave = $('#btnEditSave');
+
+    let selectInteraction = null;
+    let modifyInteraction = null;
+
+    let buildingLayer = null;
+    let currentFeature = null;
+    let hasGeometryChanged = false;
+
+    // 进入编辑模式
+    $btnEdit.on('click', function () {
+
+        map.getLayers().forEach(layer => {
+            if (layer.get('title') === '建筑图层') {
+                buildingLayer = layer;
+            }
+        });
+
+        if (!buildingLayer) {
+            alert('未找到建筑图层');
+            return;
+        }
+
+        if (selectInteraction) map.removeInteraction(selectInteraction);
+        if (modifyInteraction) map.removeInteraction(modifyInteraction);
+
+        selectInteraction = new Select({ layers: [buildingLayer] });
+        modifyInteraction = new Modify({
+            features: selectInteraction.getFeatures()
+        });
+
+        map.addInteraction(selectInteraction);
+        map.addInteraction(modifyInteraction);
+
+        selectInteraction.on('select', function (evt) {
+            currentFeature = evt.selected[0];
+            hasGeometryChanged = false;
+        });
+
+        modifyInteraction.on('modifyend', function (evt) {
+            currentFeature = evt.features.getArray()[0];
+            hasGeometryChanged = true;
+        });
+    });
+
+    // 完成编辑并保存
+    $btnSave.on('click', function () {
+
+        if (!currentFeature || !hasGeometryChanged) {
+            alert('没有需要保存的修改');
+            return;
+        }
+
+        const fid = currentFeature.getId() ?? currentFeature.ol_uid;
+        const oldName = currentFeature.get('Name') ?? '';
+        const newName = prompt('修改建筑名称', oldName);
+        if (newName === null) return;
+
+        currentFeature.set('Name', newName);
+
+        const geojson = new GeoJSON().writeFeatureObject(currentFeature);
+
+        fetch(`http://127.0.0.1:5000/edit-feature/building/${fid}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                geometry: geojson.geometry,
+                properties: { Name: newName }
+            })
+        })
+        .then(() => {
+            alert('建筑修改成功');
+            buildingLayer.getSource().refresh();
+            hasGeometryChanged = false;
+            currentFeature = null;
+        });
+    });
+}
+
+
 
 
 
@@ -311,6 +407,7 @@ updateDataLayersList(map);
 registerEvent(map);
 initBrowseFunction(map);
 initCreateFunction(map);
+initEditFunction(map);
 
 
 
