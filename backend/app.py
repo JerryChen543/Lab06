@@ -188,6 +188,21 @@ def add_feature(filename):
         if new_feature.crs != gdf.crs:
             new_feature = new_feature.to_crs(gdf.crs)
         
+        # 确保新要素的数据类型与原数据一致
+        for col in gdf.columns:
+            if col == 'geometry':
+                continue  # 跳过geometry列
+            if col in new_feature.columns:
+                # 获取原数据的列类型
+                original_dtype = gdf[col].dtype
+                
+                # 尝试转换新要素的列类型
+                try:
+                    new_feature[col] = new_feature[col].astype(original_dtype)
+                except (ValueError, TypeError):
+                    # 如果转换失败，保持原有值但记录警告
+                    app.logger.warning(f"无法将列 {col} 转换为类型 {original_dtype}")
+        
         # 合并到现有数据
         gdf = pd.concat([gdf, new_feature], ignore_index=True)
         
@@ -247,10 +262,21 @@ def edit_feature(filename, fid):
             gdf.loc[fid, 'geometry'] = temp_geom.geometry.iloc[0]
                 
         # 更新属性（如果有提供）
-        if properties:
-            for key, value in properties.items():
-                if key in gdf.columns:
-                    gdf.loc[fid, key] = value
+        new_feature = gpd.GeoDataFrame([properties], geometry=[gdf.loc[fid, 'geometry']], crs=gdf.crs)
+        # 确保数据类型与原数据一致
+        for col in new_feature.columns:
+            if col == 'geometry':
+                continue  # 跳过geometry列
+            if col in gdf.columns:
+                # 获取原数据的列类型
+                original_dtype = gdf[col].dtype
+                
+                # 尝试转换新要素的列类型
+                try:
+                    gdf.loc[fid, col] = new_feature[col].astype(original_dtype).values[0]
+                except (ValueError, TypeError):
+                    # 如果转换失败，保持原有值但记录警告
+                    app.logger.warning(f"无法将列 {col} 转换为类型 {original_dtype}")
                     
         # 保存更新后的文件
         gdf.to_file(shp_path, encoding='utf-8')
