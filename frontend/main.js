@@ -4,6 +4,7 @@ import { Map, View } from 'ol';
 import Style from 'ol/style/Style';
 import Fill from 'ol/style/Fill';
 import Stroke from 'ol/style/Stroke';
+import Draw from 'ol/interaction/Draw';
 
 
 import GeoJSON from 'ol/format/GeoJSON';
@@ -216,6 +217,90 @@ function initBrowseFunction(map) {
     });
 }
 
+/* ==============================
+  新建功能（Create）
+================================ */
+function initCreateFunction(map) {
+
+    const $btnCreate = $('#btnCreate');
+    let drawInteraction = null;
+
+    $btnCreate.on('click', function () {
+
+        // 1️⃣ 找到建筑图层
+        let buildingLayer = null;
+        map.getLayers().forEach(layer => {
+            if (layer.get('title') === '建筑图层') {
+                buildingLayer = layer;
+            }
+        });
+
+        if (!buildingLayer) {
+            alert('未找到建筑图层');
+            return;
+        }
+
+        // 2️⃣ 防止重复添加 Draw
+        if (drawInteraction) {
+            map.removeInteraction(drawInteraction);
+            drawInteraction = null;
+        }
+
+        // 3️⃣ 创建绘制交互（Polygon）
+        drawInteraction = new Draw({
+            source: buildingLayer.getSource(),
+            type: 'Polygon'
+        });
+
+        map.addInteraction(drawInteraction);
+
+        // 4️⃣ 监听绘制完成
+        drawInteraction.once('drawend', function (evt) {
+
+            // 停止绘制
+            map.removeInteraction(drawInteraction);
+            drawInteraction = null;
+
+            // 获取新要素
+            const feature = evt.feature;
+
+            // 5️⃣ 输入建筑名称
+            const name = prompt('请输入建筑名称');
+            if (!name) {
+                alert('建筑名称不能为空');
+                return;
+            }
+
+            feature.set('Name', name);
+
+            // 6️⃣ 转为 GeoJSON（坐标系转换）
+            const geojson = new GeoJSON().writeFeatureObject(feature, {
+                featureProjection: 'EPSG:3857',
+                dataProjection: 'EPSG:4326'
+            });
+
+            // 7️⃣ 发送给 Flask 后端
+            fetch('http://127.0.0.1:5000/add-feature/building', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(geojson)
+            })
+            .then(res => res.json())
+            .then(() => {
+                alert('新增建筑成功');
+                //buildingLayer.getSource().refresh();
+            })
+            .catch(() => {
+                alert('新增建筑失败');
+            });
+        });
+    });
+}
+
+
+
 
 /* ==============================
    5️⃣ 主流程
@@ -225,6 +310,20 @@ loadDataLayers(map);
 updateDataLayersList(map);
 registerEvent(map);
 initBrowseFunction(map);
+initCreateFunction(map);
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
