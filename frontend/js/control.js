@@ -34,22 +34,30 @@ export function registerEvent(map) {
     initEditPopup();
 
     // 新建、编辑、删除按钮按下切换active状态
+    let toolInteractions = [];
+    let onContextMenu = (e) => { unselectAllTools(); };
     const featureManagementBtns =
         [$('#btn-new'), $('#btn-edit'), $('#btn-delete')];
-    function unselectAllToolButtons() {
-
+    function unselectAllTools() {
         featureManagementBtns.forEach($btn => {
             $btn.removeClass('active');
         });
 
         // 移除交互
-        interaction && map.removeInteraction(interaction);
-        interaction = null;
+        removeAllToolInteractions();
     }
+
+    function removeAllToolInteractions() {
+        toolInteractions.forEach(interaction => {
+            map.removeInteraction(interaction);
+        });
+        toolInteractions = [];
+    }
+
     function selectCurrentToolButton($btn) {
         const active = !$btn.hasClass('active');
         // 先取消所有工具按钮的选中状态
-        unselectAllToolButtons();
+        unselectAllTools();
         // 再切换当前工具按钮的选中状态
         if (active) {
             $btn.addClass('active');
@@ -59,7 +67,6 @@ export function registerEvent(map) {
         return active;
     }
 
-    let interaction = null;
     const selectedLayer = map.getLayers().getArray()
         .filter(layer => layer.get('title') === '建筑图层')[0];
     // 新建要素按钮
@@ -69,8 +76,9 @@ export function registerEvent(map) {
         if (!active) return;
 
         // 添加绘制交互
-        interaction = newFeatures(map,
+        const drawInteraction = newFeatures(map,
             selectedLayer.getSource());
+        toolInteractions.push(drawInteraction);
     });
 
     // 编辑要素按钮
@@ -80,8 +88,17 @@ export function registerEvent(map) {
         if (!active) return;
 
         // 添加编辑交互
-        interaction = editFeatures(map,
-            selectedLayer.getSource());
+        editFeatures(map,
+            selectedLayer.getSource(),
+            (interaction) => { toolInteractions.push(interaction); },
+            (callback) => {
+                if (callback !== null) {
+                    onContextMenu = callback;
+                } else {
+                    onContextMenu = (e) => { unselectAllTools(); };
+                }
+            }
+        );
     });
 
     // 删除要素按钮
@@ -94,7 +111,7 @@ export function registerEvent(map) {
     // 右键点击地图时，取消当前启用的工具
     $('#map').on('contextmenu', function (e) {
         e.preventDefault();
-        unselectAllToolButtons();
+        onContextMenu(e);
     });
 }
 

@@ -1,7 +1,7 @@
 import { Draw, Select, Modify } from 'ol/interaction';
 import { Vector } from 'ol/source';
 import { GeoJSON } from 'ol/format';
-import { addFeature } from './api';
+import { addFeature, editFeature } from './api';
 import { showEditPopup } from './popup';
 import Collection from 'ol/Collection.js';
 
@@ -47,40 +47,64 @@ export function newFeatures(map,
 }
 
 export function editFeatures(map,
-    source = new Vector({ wrapX: true })) {
+    source = new Vector({ wrapX: true }),
+    stashInteraction = (interaction) => { },
+    setOnContextMenu = (callback) => { }
+) {
+    const fileName = source.get("fileName");
+    let selectedFeature = null;
+    let modifyInteraction = null;
+
     // 实例化交互选择类对象
-    const selectInteraction = selectFeatures(map, source, (features) => {
+    const selectInteraction = selectFeatures(map, source,
+        onSelectFeatures);
+    stashInteraction(selectInteraction);
+
+    function onSelectFeatures(features) {
         if (features.length === 0) return;
+        selectedFeature = features[0];
 
         // 实例化交互修改类对象
-        const modifyInteraction = new Modify({
+        if (modifyInteraction) {
+            map.removeInteraction(modifyInteraction);
+        }
+        modifyInteraction = new Modify({
             // 修改层数据源
             source: source,
-            features: new Collection(features),
+            features: new Collection([selectedFeature]),
         });
 
         // 并添加到地图容器中
         map.addInteraction(modifyInteraction);
+        stashInteraction(modifyInteraction);
 
-        modifyInteraction.on('modifyend', function (event) {
-            const feature = event.features.getArray()[0];
+        // 在右键事件中，结束要素形状编辑
+        setOnContextMenu(() => { onModifyEnd(); });
+
+        function onModifyEnd() {
+            const feature = selectedFeature;
             let properties = feature.getProperties();
-            // 显示编辑弹窗
+            
+            // 显示属性编辑弹窗
             showEditPopup(properties,
-                (newProperties) => {
-                    // 保存编辑时，更新要素属性
-                    feature.setProperties(newProperties);
-                    const json = featureToJSON(feature, newProperties);
-                    return
-                    // TODO: 发送绘制的要素到后端
-                    // editFeature(json, fileName);
-                },
-                () => { });
-        });
+                onFinishEdit, onCancelEdit);
 
-    });
+            function onFinishEdit(newProperties) {
+                // 保存编辑时，更新要素属性
+                feature.setProperties(newProperties);
+                const json = featureToJSON(feature, newProperties);
+                editFeature(json, fileName);
+                map.removeInteraction(modifyInteraction);
+                setOnContextMenu(null);
+            }
 
-    return selectInteraction;
+            function onCancelEdit() {
+                // 撤销编辑时，刷新要素显示
+                source.refresh();
+                map.removeInteraction(modifyInteraction);
+            }
+        }
+    }
 }
 
 function selectFeatures(map,
