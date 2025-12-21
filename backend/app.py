@@ -182,7 +182,7 @@ def add_feature(filename):
             return jsonify({"error": "不支持的几何类型"}), 400
             
         # 创建新要素
-        new_feature = gpd.GeoDataFrame([properties], geometry=[geometry], crs=gdf.crs)
+        new_feature = gpd.GeoDataFrame([properties], geometry=[geometry], crs='EPSG:3857')
         
         # 转换坐标（如果需要）  
         if new_feature.crs != gdf.crs:
