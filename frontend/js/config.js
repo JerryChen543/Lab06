@@ -33,7 +33,7 @@ export const MapLayersData =
         {
             name: '道路图层',
             geomType: 1,
-            url: 'data/road',
+            url: 'road',
             visible: true,
             zIndex: 5,
             style: {
@@ -46,7 +46,7 @@ export const MapLayersData =
         {
             name: '建筑图层',
             geomType: 2,
-            url: 'data/jmd',
+            url: 'jmd',
             visible: true,
             zIndex: 6,
             style: {
@@ -63,7 +63,7 @@ export const MapLayersData =
         {
             name: '校园边界',
             geomType: 2,
-            url: 'data/boundary',
+            url: 'boundary',
             visible: true,
             zIndex: 1,
             style: {

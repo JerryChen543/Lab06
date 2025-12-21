@@ -88,7 +88,7 @@ export function registerEvent(map) {
     // 右键点击地图时，取消当前启用的工具
     $('#map').on('contextmenu', function (e) {
         e.preventDefault();
-        $('.toolbar-btn').removeClass('active');
+        unselectAllToolButtons();
     });
 }
 

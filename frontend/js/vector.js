@@ -12,7 +12,7 @@ export function getVectorLayer(layerName) {
     }
 
     const source = new VectorSource({
-        url: WebService.url + data.url,
+        url: WebService.url + 'data/' + data.url,
         format: new GeoJSON(),
     });
     source.setProperties({
@@ -21,6 +21,7 @@ export function getVectorLayer(layerName) {
             data.geomType === 0 ? "Point" :
                 data.geomType === 1 ? "LineString" :
                     "Polygon",
+        fileName: data.url,
     });
 
     return new Vector({
