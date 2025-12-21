@@ -153,7 +153,7 @@ function updateJMDTable(map = new Map()) {
         if (key == "geometry") return;
         $header.append($('<th>').text(key));
     });
-    $('#jmd-table thead').append($header);
+    $('#jmd-table thead').empty().append($header);
 
     // 遍历建筑图层中的要素，更新表格
     const jmdFeatures = jmdLayerSource.getFeatures();
