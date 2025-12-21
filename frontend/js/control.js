@@ -1,5 +1,6 @@
 import $ from 'jquery';
 import { initEditPopup } from './popup.js';
+import { deleteFeature } from './api.js';
 import { newFeatures, editFeatures, deleteFeatures, getFeatureProperties } from './feature.js';
 
 export function registerEvent(map) {
@@ -153,24 +154,46 @@ function updateJMDTable(map = new Map()) {
         if (key == "geometry") return;
         $header.append($('<th>').text(key));
     });
+    $header.append($('<th>').text('操作'));
     $('#jmd-table thead').empty().append($header);
 
     // 遍历建筑图层中的要素，更新表格
     const jmdFeatures = jmdLayerSource.getFeatures();
     jmdFeatures.forEach(feature => {
-        const $row = $('<tr>');
-        const values = [];
+        const $row = $('<tr>')
+            .data('feature-id', feature.getId());
+        const $items = [];
         featureKeys.forEach(key => {
             if (key == "geometry") return;
-            values.push(feature.get(key));
+            $items.push($('<td>')
+                .text(feature.get(key)));
         });
+        $items.push($('<button>')
+            .addClass('jmd-remove-btn')
+            .text('删除'));
 
-        // 跳过有属性值为null的要素
-        if (values.some(value => value === null)) return;
+        // // 跳过有属性值为null的要素
+        // if (values.some(value => value === null)) return;
 
-        values.forEach(value => {
-            $row.append($('<td>').text(value));
+        $items.forEach(item => {
+            $row.append(item);
         });
         $row.appendTo('#jmd-table-body');
+    });
+
+    // 绑定删除按钮点击事件
+    $('.jmd-remove-btn').on('click', function () {
+        const $row = $(this).closest('tr');
+        const featureId = $row.data('feature-id');
+        // 从地图中删除该要素
+        jmdLayerSource.forEachFeature(feature => {
+            if (feature.getId() === featureId) {
+                jmdLayerSource.removeFeature(feature);
+            }
+        });
+        // 从表格中删除该行
+        $row.remove();
+        // 从后端删除选中要素
+        deleteFeature(featureId, jmdLayerSource.get("fileName"));
     });
 }
