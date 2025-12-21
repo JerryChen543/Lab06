@@ -394,6 +394,78 @@ function initEditFunction(map) {
     });
 }
 
+/* ==============================
+  删除功能（Select + DELETE）
+================================ */
+function initDeleteFunction(map) {
+
+    const $btnDelete = $('#btnDelete');
+    let selectInteraction = null;
+    let buildingLayer = null;
+
+    $btnDelete.on('click', function () {
+
+        console.log('进入删除模式');
+
+        // 1️⃣ 找到建筑图层
+        map.getLayers().forEach(layer => {
+            if (layer.get('title') === '建筑图层') {
+                buildingLayer = layer;
+            }
+        });
+
+        if (!buildingLayer) {
+            alert('未找到建筑图层');
+            return;
+        }
+
+        // 2️⃣ 清理旧 Select
+        if (selectInteraction) {
+            map.removeInteraction(selectInteraction);
+            selectInteraction = null;
+        }
+
+        // 3️⃣ 创建 Select
+        selectInteraction = new Select({
+            layers: [buildingLayer]
+        });
+        map.addInteraction(selectInteraction);
+
+        // 4️⃣ 监听选中
+        selectInteraction.on('select', function (evt) {
+
+            const feature = evt.selected[0];
+            if (!feature) return;
+
+            const fid = feature.getId() ?? feature.ol_uid;
+            const name = feature.get('Name') ?? '未命名';
+
+            const ok = confirm(`确定删除建筑「${name}」吗？`);
+            if (!ok) {
+                selectInteraction.getFeatures().clear();
+                return;
+            }
+
+            // 5️⃣ DELETE 到后端
+            fetch(`http://127.0.0.1:5000/delete-feature/building/${fid}`, {
+                method: 'DELETE'
+            })
+            .then(res => res.json())
+            .then(() => {
+                alert('建筑删除成功');
+                buildingLayer.getSource().refresh();
+
+                // 删除完成后退出删除模式
+                map.removeInteraction(selectInteraction);
+                selectInteraction = null;
+            })
+            .catch(err => {
+                console.error(err);
+                alert('建筑删除失败');
+            });
+        });
+    });
+}
 
 
 
@@ -408,6 +480,8 @@ registerEvent(map);
 initBrowseFunction(map);
 initCreateFunction(map);
 initEditFunction(map);
+initDeleteFunction(map);
+
 
 
 
