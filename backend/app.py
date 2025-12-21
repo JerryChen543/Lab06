@@ -131,7 +131,7 @@ def download_geojson(filename):
         
         # 创建临时GeoJSON文件
         temp_file = f"/tmp/{filename}.geojson"
-        gdf.to_file(temp_file, driver='GeoJSON')
+        gdf.to_file(temp_file, driver='GeoJSON', encoding='utf-8')
         
         return send_file(
             temp_file,
@@ -184,7 +184,7 @@ def add_feature(filename):
         gdf = pd.concat([gdf, new_feature], ignore_index=True)
         
         # 保存更新后的文件
-        gdf.to_file(shp_path)
+        gdf.to_file(shp_path, encoding='utf-8')
         
         return jsonify({
             "success": True,
@@ -232,7 +232,7 @@ def edit_feature(filename, fid):
                     gdf.loc[fid, key] = value
                     
         # 保存更新后的文件
-        gdf.to_file(shp_path)
+        gdf.to_file(shp_path, encoding='utf-8')
         
         return jsonify({
             "success": True,
@@ -260,7 +260,7 @@ def delete_feature(filename, fid):
         gdf = gdf.drop(fid).reset_index(drop=True)
         
         # 保存更新后的文件
-        gdf.to_file(shp_path)
+        gdf.to_file(shp_path, encoding='utf-8')
         
         return jsonify({
             "success": True,
