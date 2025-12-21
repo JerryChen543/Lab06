@@ -1,4 +1,5 @@
 import $ from 'jquery';
+import { newFeatures } from './feature.js';
 
 export function registerEvent(map) {
     // 点击面板标题或按钮切换面板状态
@@ -28,20 +29,59 @@ export function registerEvent(map) {
         updateJMDTable(map);
     });
 
-    // 工具栏按钮事件处理
+    // 新建、编辑、删除按钮按下切换active状态
+    const featureManagementBtns =
+        [$('#btn-new'), $('#btn-edit'), $('#btn-delete')];
+    function unselectAllToolButtons() {
+
+        featureManagementBtns.forEach($btn => {
+            $btn.removeClass('active');
+        });
+
+        // 移除交互
+        interaction && map.removeInteraction(interaction);
+        interaction = null;
+    }
+    function selectCurrentToolButton($btn) {
+        const active = !$btn.hasClass('active');
+        // 先取消所有工具按钮的选中状态
+        unselectAllToolButtons();
+        // 再切换当前工具按钮的选中状态
+        if (active) {
+            $btn.addClass('active');
+        } else {
+            $btn.removeClass('active');
+        }
+        return active;
+    }
+
+    let interaction = null;
+    const selectedLayer = map.getLayers().getArray()
+        .filter(layer => layer.get('title') === '建筑图层')[0];
     // 新建要素按钮
     $('#btn-new').on('click', function () {
-        $(this).toggleClass('active');
-        // TODO: 新建要素
+        // 选中当前按钮
+        const active = selectCurrentToolButton($(this));
+
+        if (active) {
+            // 添加绘制交互
+            interaction = newFeatures(map,
+                selectedLayer.getSource());
+        }
     });
+
     // 编辑要素按钮
     $('#btn-edit').on('click', function () {
-        $(this).toggleClass('active');
+        // 选中当前按钮
+        const active = selectCurrentToolButton($(this));
         // TODO: 编辑要素
+
     });
+
     // 删除要素按钮
     $('#btn-delete').on('click', function () {
-        $(this).toggleClass('active');
+        // 选中当前按钮
+        const active = selectCurrentToolButton($(this));
         // TODO: 删除要素
     });
 

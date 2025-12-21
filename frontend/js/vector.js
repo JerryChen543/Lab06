@@ -15,6 +15,13 @@ export function getVectorLayer(layerName) {
         url: WebService.url + data.url,
         format: new GeoJSON(),
     });
+    source.setProperties({
+        // interaction.Draw type的字符串
+        geometryType:
+            data.geomType === 0 ? "Point" :
+                data.geomType === 1 ? "LineString" :
+                    "Polygon",
+    });
 
     return new Vector({
         source: source,
