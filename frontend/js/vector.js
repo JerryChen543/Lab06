@@ -28,6 +28,7 @@ export function getVectorLayer(layerName) {
         source: source,
         style: getVectorLayerStyle(data),
         title: layerName,
+        opacity: data.style?.fill?.opacity || 1,
     });
 }
 
