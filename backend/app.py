@@ -164,6 +164,10 @@ def add_feature(filename):
         # 读取现有SHP文件
         gdf = gpd.read_file(shp_path)
         
+        # 设置默认坐标系（如果Shapefile没有定义）
+        if gdf.crs is None:
+            gdf.crs = 'EPSG:4326'
+        
         # 创建几何对象
         geom_type = geometry_data.get('type')
         coordinates = geometry_data.get('coordinates')
@@ -179,6 +183,10 @@ def add_feature(filename):
             
         # 创建新要素
         new_feature = gpd.GeoDataFrame([properties], geometry=[geometry], crs=gdf.crs)
+        
+        # 转换坐标（如果需要）  
+        if new_feature.crs != gdf.crs:
+            new_feature = new_feature.to_crs(gdf.crs)
         
         # 合并到现有数据
         gdf = pd.concat([gdf, new_feature], ignore_index=True)
@@ -210,6 +218,10 @@ def edit_feature(filename, fid):
         # 读取SHP文件
         gdf = gpd.read_file(shp_path)
         
+        # 设置默认坐标系（如果Shapefile没有定义）
+        if gdf.crs is None:
+            gdf.crs = 'EPSG:4326'
+        
         if fid >= len(gdf):
             return jsonify({"error": "要素ID不存在"}), 404
             
@@ -218,12 +230,21 @@ def edit_feature(filename, fid):
             geom_type = geometry_data.get('type')
             coordinates = geometry_data.get('coordinates')
             
+            # 创建临时GeoDataFrame进行坐标转换
             if geom_type == 'Point':
-                gdf.loc[fid, 'geometry'] = Point(coordinates)
+                temp_geom = gpd.GeoDataFrame([{}], geometry=[Point(coordinates)], crs='EPSG:3857')
             elif geom_type == 'LineString':
-                gdf.loc[fid, 'geometry'] = LineString(coordinates)
+                temp_geom = gpd.GeoDataFrame([{}], geometry=[LineString(coordinates)], crs='EPSG:3857')
             elif geom_type == 'Polygon':
-                gdf.loc[fid, 'geometry'] = Polygon(coordinates[0])
+                temp_geom = gpd.GeoDataFrame([{}], geometry=[Polygon(coordinates[0])], crs='EPSG:3857')
+            else:
+                return jsonify({"error": "不支持的几何类型"}), 400
+            
+            # 转换坐标（如果需要）
+            if temp_geom.crs != gdf.crs:
+                temp_geom = temp_geom.to_crs(gdf.crs)
+                
+            gdf.loc[fid, 'geometry'] = temp_geom.geometry.iloc[0]
                 
         # 更新属性（如果有提供）
         if properties:
