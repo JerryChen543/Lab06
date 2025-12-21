@@ -2,6 +2,7 @@ import { Draw, Select, Modify } from 'ol/interaction';
 import { Vector } from 'ol/source';
 import { GeoJSON } from 'ol/format';
 import { addFeature } from './api';
+import { showEditPopup } from './popup';
 
 export function newFeatures(map,
     source = new Vector({ wrapX: true })) {
@@ -24,13 +25,21 @@ export function newFeatures(map,
     drawInteraction.on('drawend', function (event) {
         // 绘制结束后，将绘制的要素添加到选择交互中
         const feature = event.feature;
-        const properties = {
-            id: 0,
-            name: '测试',
-        };
-        const json = featureToJSON(feature, properties);
-        // 发送绘制的要素到后端
-        addFeature(json, fileName);
+        let properties = getFeatureProperties(source);
+        resetProperties(properties);
+        // 显示编辑弹窗
+        showEditPopup(properties,
+            (newProperties) => {
+                // 保存编辑时，更新要素属性
+                feature.setProperties(newProperties);
+                const json = featureToJSON(feature, newProperties);
+                // 发送绘制的要素到后端
+                addFeature(json, fileName);
+            },
+            () => {
+                // 取消编辑时，删除绘制的要素
+                source.removeFeature(feature);
+            });
     });
 
     return drawInteraction;
@@ -42,4 +51,45 @@ function featureToJSON(feature, properties) {
     let data = JSON.parse(json);  //转为要素对象
     data["properties"] = properties; //添加属性字段
     return JSON.stringify(data);//转为JSON字符串
+}
+
+function getFeatureProperties(source) {
+    const features = source.getFeatures();
+    if (features.length === 0) {
+        return {};
+    }
+
+    let properties = {};
+    features.forEach(feature => {
+        const featureProperties = feature.getProperties();
+        Object.keys(featureProperties).forEach(key => {
+            properties[key] = featureProperties[key];
+        });
+    });
+    return properties;
+}
+
+function resetProperties(properties) {
+    // 移除几何属性
+    delete properties["geometry"];
+
+    // 将要素属性重置为缺省值
+    Object.keys(properties).forEach(key => {
+        switch (typeof properties[key]) {
+            case 'number':
+                properties[key] = 0;
+                break;
+            case 'string':
+                properties[key] = '';
+                break;
+            case 'boolean':
+                properties[key] = false;
+                break;
+            default:
+                properties[key] = null;
+                break;
+        }
+    });
+
+    return properties;
 }

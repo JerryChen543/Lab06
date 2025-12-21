@@ -1,4 +1,5 @@
 import $ from 'jquery';
+import { initEditPopup } from './popup.js';
 import { newFeatures } from './feature.js';
 
 export function registerEvent(map) {
@@ -28,6 +29,9 @@ export function registerEvent(map) {
         // 更新建筑图层信息
         updateJMDTable(map);
     });
+
+    // 初始化编辑弹窗
+    initEditPopup();
 
     // 新建、编辑、删除按钮按下切换active状态
     const featureManagementBtns =
