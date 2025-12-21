@@ -3,6 +3,7 @@ import { Vector } from 'ol/source';
 import { GeoJSON } from 'ol/format';
 import { addFeature } from './api';
 import { showEditPopup } from './popup';
+import Collection from 'ol/Collection.js';
 
 export function newFeatures(map,
     source = new Vector({ wrapX: true })) {
@@ -43,6 +44,66 @@ export function newFeatures(map,
     });
 
     return drawInteraction;
+}
+
+export function editFeatures(map,
+    source = new Vector({ wrapX: true })) {
+    // 实例化交互选择类对象
+    const selectInteraction = selectFeatures(map, source, (features) => {
+        if (features.length === 0) return;
+
+        // 实例化交互修改类对象
+        const modifyInteraction = new Modify({
+            // 修改层数据源
+            source: source,
+            features: new Collection(features),
+        });
+
+        // 并添加到地图容器中
+        map.addInteraction(modifyInteraction);
+
+        modifyInteraction.on('modifyend', function (event) {
+            const feature = event.features.getArray()[0];
+            let properties = feature.getProperties();
+            // 显示编辑弹窗
+            showEditPopup(properties,
+                (newProperties) => {
+                    // 保存编辑时，更新要素属性
+                    feature.setProperties(newProperties);
+                    const json = featureToJSON(feature, newProperties);
+                    return
+                    // TODO: 发送绘制的要素到后端
+                    // editFeature(json, fileName);
+                },
+                () => { });
+        });
+
+    });
+
+    return selectInteraction;
+}
+
+function selectFeatures(map,
+    source = new Vector({ wrapX: true }),
+    selectFeatureCallback,
+) {
+    // 实例化交互选择类对象
+    const selectInteraction = new Select({
+        // 选择层数据源
+        source: source,
+        // 选择模式：单选
+        multiple: false,
+    });
+
+    // 并添加到地图容器中
+    map.addInteraction(selectInteraction);
+
+    // 选择要素事件
+    selectInteraction.on('select', function (event) {
+        selectFeatureCallback(event.selected);
+    });
+
+    return selectInteraction;
 }
 
 function featureToJSON(feature, properties) {

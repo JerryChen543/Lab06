@@ -1,6 +1,6 @@
 import $ from 'jquery';
 import { initEditPopup } from './popup.js';
-import { newFeatures, getFeatureProperties } from './feature.js';
+import { newFeatures, editFeatures, getFeatureProperties } from './feature.js';
 
 export function registerEvent(map) {
     // 点击面板标题或按钮切换面板状态
@@ -66,20 +66,22 @@ export function registerEvent(map) {
     $('#btn-new').on('click', function () {
         // 选中当前按钮
         const active = selectCurrentToolButton($(this));
+        if (!active) return;
 
-        if (active) {
-            // 添加绘制交互
-            interaction = newFeatures(map,
-                selectedLayer.getSource());
-        }
+        // 添加绘制交互
+        interaction = newFeatures(map,
+            selectedLayer.getSource());
     });
 
     // 编辑要素按钮
     $('#btn-edit').on('click', function () {
         // 选中当前按钮
         const active = selectCurrentToolButton($(this));
-        // TODO: 编辑要素
+        if (!active) return;
 
+        // 添加编辑交互
+        interaction = editFeatures(map,
+            selectedLayer.getSource());
     });
 
     // 删除要素按钮
