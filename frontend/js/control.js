@@ -1,6 +1,6 @@
 import $ from 'jquery';
 import { initEditPopup } from './popup.js';
-import { newFeatures } from './feature.js';
+import { newFeatures, getFeatureProperties } from './feature.js';
 
 export function registerEvent(map) {
     // 点击面板标题或按钮切换面板状态
@@ -119,19 +119,34 @@ function updateJMDTable(map = new Map()) {
     const layers = map.getLayers().getArray();
     const jmdLayer = layers
         .filter(layer => layer.get('title') === '建筑图层')[0];
-    const jmdFeatures = jmdLayer.getSource().getFeatures();
 
-    // 遍历建筑图层中的特征，更新表格
+    // 获取建筑图层的数据源，更新表头
+    const jmdLayerSource = jmdLayer.getSource();
+    const properties = getFeatureProperties(jmdLayerSource);
+    const featureKeys = Object.keys(properties);
+    const $header = $('<tr>');
+    featureKeys.forEach(key => {
+        if (key == "geometry") return;
+        $header.append($('<th>').text(key));
+    });
+    $('#jmd-table thead').append($header);
+
+    // 遍历建筑图层中的要素，更新表格
+    const jmdFeatures = jmdLayerSource.getFeatures();
     jmdFeatures.forEach(feature => {
-        const id = feature.getId();
-        const properties = feature.getProperties();
-        const jmdName = properties['name'];
-        if (jmdName) {
-            console.log(id, jmdName);
-            $('<tr>')
-                .append($('<td>').text(id))
-                .append($('<td>').text(jmdName))
-                .appendTo('#jmd-table-body');
-        }
+        const $row = $('<tr>');
+        const values = [];
+        featureKeys.forEach(key => {
+            if (key == "geometry") return;
+            values.push(feature.get(key));
+        });
+
+        // 跳过有属性值为null的要素
+        if (values.some(value => value === null)) return;
+
+        values.forEach(value => {
+            $row.append($('<td>').text(value));
+        });
+        $row.appendTo('#jmd-table-body');
     });
 }

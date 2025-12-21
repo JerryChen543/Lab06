@@ -53,7 +53,7 @@ function featureToJSON(feature, properties) {
     return JSON.stringify(data);//转为JSON字符串
 }
 
-function getFeatureProperties(source) {
+export function getFeatureProperties(source) {
     const features = source.getFeatures();
     if (features.length === 0) {
         return {};
